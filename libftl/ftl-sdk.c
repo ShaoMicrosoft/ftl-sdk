@@ -13,13 +13,14 @@ TRACELOGGING_DEFINE_PROVIDER(
 	XpertTraceLoggingProvider,
 	"Microsoft.Mixer.SFtlSdk",
 	// {bf64bb37-a540-59a4-3b62-40f852e8e25b}
-	                       (0xbf64bb37, 0xa540, 0x59a4, 0x3b, 0x62, 0x40, 0xf8, 0x52, 0xe8, 0xe2, 0x5b),
-	TraceLoggingOptionGroup(0x4f50731a, 0x89cf, 0x4782, 0xb3, 0xe0, 0xdc, 0x8c, 0x90, 0x47, 0x76, 0xba));
+	(0xbf64bb37, 0xa540, 0x59a4, 0x3b, 0x62, 0x40, 0xf8, 0x52, 0xe8, 0xe2, 0x5b),
+	TraceLoggingOptionGroup(0x4f50731a, 0x89cf, 0x4782, 0xb3, 0xe0, 0xdc, 0xe8, 0xc9, 0x04, 0x76, 0xba));
+
 
 char error_message[1000];
 FTL_API const int FTL_VERSION_MAJOR = 0;
-FTL_API const int FTL_VERSION_MINOR = 10;
-FTL_API const int FTL_VERSION_MAINTENANCE = 0;
+FTL_API const int FTL_VERSION_MINOR = 9;
+FTL_API const int FTL_VERSION_MAINTENANCE = 11;
 
 // Initializes all sublibraries used by FTL
 FTL_API ftl_status_t ftl_init() {
@@ -107,7 +108,8 @@ FTL_API ftl_status_t ftl_ingest_create(ftl_handle_t *ftl_handle, ftl_ingest_para
 
 	TraceLoggingWrite(XpertTraceLoggingProvider,
 		"CreateParams",            
-		TraceLoggingKeyword(0x800000000000),
+		TraceLoggingKeyword(0x400000000000),
+		TraceLoggingLevel(WINEVENT_LEVEL_INFO),
 		TraceLoggingString(ftl->vendor_name, "VendorName"),
 		TraceLoggingString(ftl->vendor_version, "VendorVersion"),
 	    TraceLoggingString(params->ingest_hostname, "IngestHostname"),
@@ -126,15 +128,34 @@ FTL_API ftl_status_t ftl_ingest_create(ftl_handle_t *ftl_handle, ftl_ingest_para
 FTL_API ftl_status_t ftl_ingest_connect(ftl_handle_t *ftl_handle){
   ftl_stream_configuration_private_t *ftl = (ftl_stream_configuration_private_t *)ftl_handle->priv;
   ftl_status_t status = FTL_SUCCESS;
+  struct timeval profile_start;
 
   do {
+
+	gettimeofday(&profile_start, NULL);
+
     if ((status = _init_control_connection(ftl)) != FTL_SUCCESS) {
       break;
     }
 
+	TraceLoggingWrite(XpertTraceLoggingProvider,
+		"IngestInit",
+		TraceLoggingLevel(WINEVENT_LEVEL_INFO),
+		TraceLoggingKeyword(0x400000000000),
+		TraceLoggingUInt32(get_ms_elapsed_since(&profile_start), "LatencyMs"));
+
+
+	gettimeofday(&profile_start, NULL);
     if ((status = _ingest_connect(ftl)) != FTL_SUCCESS) {
       break;
     }
+
+	TraceLoggingWrite(XpertTraceLoggingProvider,
+		"IngestConnect",
+		TraceLoggingLevel(WINEVENT_LEVEL_INFO),
+		TraceLoggingKeyword(0x400000000000),
+		TraceLoggingUInt32(get_ms_elapsed_since(&profile_start), "LatencyMs"),
+		TraceLoggingUInt32(ftl->media.assigned_port, "AssignedPort"));
 
     if ((status = media_init(ftl)) != FTL_SUCCESS) {
       break;
@@ -142,6 +163,13 @@ FTL_API ftl_status_t ftl_ingest_connect(ftl_handle_t *ftl_handle){
 
     return status;
   } while (0);
+
+  TraceLoggingWrite(XpertTraceLoggingProvider,
+	  "IngestError",
+	  TraceLoggingLevel(WINEVENT_LEVEL_ERROR),
+	  TraceLoggingKeyword(0x400000000000),
+	  TraceLoggingUInt32(status, "ErrorCode"),
+	  TraceLoggingString(ftl_status_code_to_string(status), "ErrorString"));
 
   internal_ingest_disconnect(ftl);
   
@@ -201,8 +229,28 @@ FTL_API int ftl_ingest_speed_test(ftl_handle_t *ftl_handle, int speed_kbps, int 
 FTL_API ftl_status_t ftl_ingest_speed_test_ex(ftl_handle_t *ftl_handle, int speed_kbps, int duration_ms, speed_test_t *results) {
 
   ftl_stream_configuration_private_t *ftl = (ftl_stream_configuration_private_t *)ftl_handle->priv;
+  ftl_status_t status;
 
-  return media_speed_test(ftl, speed_kbps, duration_ms, results);
+  status = media_speed_test(ftl, speed_kbps, duration_ms, results);
+
+  TraceLoggingWrite(XpertTraceLoggingProvider,
+	  "SpeedTestEx",
+	  TraceLoggingLevel(WINEVENT_LEVEL_INFO),
+	  TraceLoggingKeyword(0x400000000000),
+	  TraceLoggingUInt32(speed_kbps, "speedKbps"),
+	  TraceLoggingUInt32(duration_ms, "durationMs"),
+	  TraceLoggingUInt32(results->bytes_sent, "pktsSent"),
+	  TraceLoggingUInt32(results->nack_requests, "nackReqs"),
+	  TraceLoggingUInt32(results->lost_pkts, "lostPkts"),
+	  TraceLoggingUInt32(results->starting_rtt, "startingRtt"),
+	  TraceLoggingUInt32(results->ending_rtt, "endingRtt"),
+	  TraceLoggingUInt32(results->bytes_sent, "bytesSent"),
+	  TraceLoggingUInt32(results->duration_ms, "durationMs"),
+	  TraceLoggingUInt32(results->peak_kbps, "peakKbps"),
+	  TraceLoggingUInt32(status, "ErrorCode"),
+	  TraceLoggingString(ftl_status_code_to_string(status), "ErrorString"));
+
+  return status;
 }
 
 FTL_API int ftl_ingest_send_media_dts(ftl_handle_t *ftl_handle, ftl_media_type_t media_type, int64_t dts_usec, uint8_t *data, int32_t len, int end_of_frame) {

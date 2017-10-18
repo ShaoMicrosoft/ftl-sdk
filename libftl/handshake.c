@@ -128,16 +128,7 @@ ftl_status_t _init_control_connection(ftl_stream_configuration_private_t *ftl) {
   if (sock <= 0) {
     FTL_LOG(ftl, FTL_LOG_ERROR, "failed to connect to ingest. Last error was: %s",
       get_socket_error());
-/*
-	TraceLoggingWrite(XpertTraceLoggingProvider, // handle to my provider
-		"ControlConnect",              // Event Name that should uniquely identify your event.
-		TraceLoggingString(ftl->vendor_name, "VendorName"),
-		TraceLoggingString(ftl->vendor_version, "VendorVersion"),
-		TraceLoggingString(params->ingest_hostname, "IngestHostname"),
-		TraceLoggingUInt32(params->peak_kbps, "PeakKbps"),
-		TraceLoggingUInt32(params->fps_num, "FpsNum"),
-		TraceLoggingUInt32(params->fps_den, "FpsDen"));
-*/
+
     return FTL_CONNECT_ERROR;
   }
 
@@ -413,6 +404,7 @@ OS_THREAD_ROUTINE control_keepalive_thread(void *data)
 {
   ftl_stream_configuration_private_t *ftl = (ftl_stream_configuration_private_t *)data;
   ftl_response_code_t response_code;
+  struct timeval profile_start;
 
   while (ftl_get_state(ftl, FTL_KEEPALIVE_THRD)) {
     os_semaphore_pend(&ftl->keepalive_thread_shutdown, KEEPALIVE_FREQUENCY_MS);
@@ -422,9 +414,17 @@ OS_THREAD_ROUTINE control_keepalive_thread(void *data)
       break;
     }
 
+	gettimeofday(&profile_start, NULL);
     if ((response_code = _ftl_send_command(ftl, FALSE, NULL, 0, "PING %d", ftl->channel_id)) != FTL_INGEST_RESP_OK) {
       FTL_LOG(ftl, FTL_LOG_ERROR, "Ingest ping failed with %d\n", response_code);
     }
+
+	TraceLoggingWrite(XpertTraceLoggingProvider,
+		"PingSend",
+		TraceLoggingKeyword(0x400000000000), 
+		TraceLoggingLevel(WINEVENT_LEVEL_ERROR),
+		TraceLoggingUInt32(get_ms_elapsed_since(&profile_start), "LatencyMs"),
+		TraceLoggingUInt32(response_code, "ErrorCode"));
   }
 
   FTL_LOG(ftl, FTL_LOG_INFO, "Exited control_keepalive_thread\n");
@@ -474,6 +474,15 @@ OS_THREAD_ROUTINE connection_status_thread(void *data)
       if (ms_since_ping > keepalive_is_late) {
         error_code = FTL_NO_PING_RESPONSE;
       }
+
+	  TraceLoggingWrite(XpertTraceLoggingProvider,
+		  "PingRsp",
+		  TraceLoggingLevel(WINEVENT_LEVEL_ERROR),
+		  TraceLoggingKeyword(0x400000000000),
+		  TraceLoggingUInt32(ms_since_ping, "msSincePing"),
+		  TraceLoggingString(get_socket_error(), "SocketError"),
+		  TraceLoggingUInt32(error_code, "ErrorCode"),
+		  TraceLoggingString(ftl_status_code_to_string(error_code), "ErrorString"));
       
       FTL_LOG(ftl, FTL_LOG_ERROR, "ingest connection has dropped: %s\n", get_socket_error());
 

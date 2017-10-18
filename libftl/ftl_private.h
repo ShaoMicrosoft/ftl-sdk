@@ -39,6 +39,7 @@
 #include <WinSock2.h>
 #include <TraceLoggingProvider.h> 
 #include <winmeta.h>
+#include <evntrace.h>
 #else
 #include <sys/types.h>
 #include <sys/socket.h>

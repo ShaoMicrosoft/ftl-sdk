@@ -128,6 +128,16 @@ ftl_status_t _init_control_connection(ftl_stream_configuration_private_t *ftl) {
   if (sock <= 0) {
     FTL_LOG(ftl, FTL_LOG_ERROR, "failed to connect to ingest. Last error was: %s",
       get_socket_error());
+/*
+	TraceLoggingWrite(XpertTraceLoggingProvider, // handle to my provider
+		"ControlConnect",              // Event Name that should uniquely identify your event.
+		TraceLoggingString(ftl->vendor_name, "VendorName"),
+		TraceLoggingString(ftl->vendor_version, "VendorVersion"),
+		TraceLoggingString(params->ingest_hostname, "IngestHostname"),
+		TraceLoggingUInt32(params->peak_kbps, "PeakKbps"),
+		TraceLoggingUInt32(params->fps_num, "FpsNum"),
+		TraceLoggingUInt32(params->fps_den, "FpsDen"));
+*/
     return FTL_CONNECT_ERROR;
   }
 

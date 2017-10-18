@@ -37,6 +37,8 @@
 #ifdef _WIN32
 #include <WS2tcpip.h>
 #include <WinSock2.h>
+#include <TraceLoggingProvider.h> 
+#include <winmeta.h>
 #else
 #include <sys/types.h>
 #include <sys/socket.h>
@@ -410,6 +412,7 @@ int ftl_read_media_port(const char *response_str);
  * Platform abstractions
  **/
 
+TRACELOGGING_DECLARE_PROVIDER(XpertTraceLoggingProvider);
 // FIXME: make this less global
 extern char error_message[1000];
 

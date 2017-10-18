@@ -9,10 +9,17 @@
 static BOOL _get_chan_id_and_key(const char *stream_key, uint32_t *chan_id, char *key);
 static int _lookup_ingest_ip(const char *ingest_location, char *ingest_ip);
 
+TRACELOGGING_DEFINE_PROVIDER(
+	XpertTraceLoggingProvider,
+	"Microsoft.Mixer.SFtlSdk",
+	// {bf64bb37-a540-59a4-3b62-40f852e8e25b}
+	                       (0xbf64bb37, 0xa540, 0x59a4, 0x3b, 0x62, 0x40, 0xf8, 0x52, 0xe8, 0xe2, 0x5b),
+	TraceLoggingOptionGroup(0x4f50731a, 0x89cf, 0x4782, 0xb3, 0xe0, 0xdc, 0x8c, 0x90, 0x47, 0x76, 0xba));
+
 char error_message[1000];
 FTL_API const int FTL_VERSION_MAJOR = 0;
-FTL_API const int FTL_VERSION_MINOR = 9;
-FTL_API const int FTL_VERSION_MAINTENANCE = 10;
+FTL_API const int FTL_VERSION_MINOR = 10;
+FTL_API const int FTL_VERSION_MAINTENANCE = 0;
 
 // Initializes all sublibraries used by FTL
 FTL_API ftl_status_t ftl_init() {
@@ -34,6 +41,8 @@ FTL_API ftl_status_t ftl_ingest_create(ftl_handle_t *ftl_handle, ftl_ingest_para
   ftl_stream_configuration_private_t *ftl = NULL;
 
   do {
+	TLG_STATUS status = TraceLoggingRegister(XpertTraceLoggingProvider);
+
     if ((ftl = (ftl_stream_configuration_private_t *)malloc(sizeof(ftl_stream_configuration_private_t))) == NULL) {
       // Note it is important that we return here otherwise the call to 
       // internal_ftl_ingest_destroy will fail!
@@ -95,6 +104,17 @@ FTL_API ftl_status_t ftl_ingest_create(ftl_handle_t *ftl_handle, ftl_ingest_para
     ftl_set_state(ftl, FTL_STATUS_QUEUE);
 
     ftl_handle->priv = ftl;
+
+	TraceLoggingWrite(XpertTraceLoggingProvider,
+		"CreateParams",            
+		TraceLoggingKeyword(0x800000000000),
+		TraceLoggingString(ftl->vendor_name, "VendorName"),
+		TraceLoggingString(ftl->vendor_version, "VendorVersion"),
+	    TraceLoggingString(params->ingest_hostname, "IngestHostname"),
+		TraceLoggingUInt32(params->peak_kbps, "PeakKbps"),
+		TraceLoggingUInt32(params->fps_num, "FpsNum"),
+		TraceLoggingUInt32(params->fps_den, "FpsDen"));
+		
     return ret_status;
   } while (0);
 
@@ -336,6 +356,8 @@ FTL_API ftl_status_t ftl_ingest_destroy(ftl_handle_t *ftl_handle){
   ftl_status_t status = FTL_SUCCESS;
 
   ftl_handle->priv = NULL;
+
+  TraceLoggingUnregister(XpertTraceLoggingProvider);
 
   return internal_ftl_ingest_destroy(ftl);
 }

@@ -298,6 +298,12 @@ FTL_API ftl_status_t ftl_ingest_disconnect(ftl_handle_t *ftl_handle) {
   ftl_stream_configuration_private_t *ftl = (ftl_stream_configuration_private_t *)ftl_handle->priv;
   ftl_status_t status_code = FTL_SUCCESS;
 
+  TraceLoggingWrite(XpertTraceLoggingProvider,
+	  "IngestUserDisconnect",
+	  TraceLoggingLevel(WINEVENT_LEVEL_INFO),
+	  TraceLoggingKeyword(0x400000000000),
+	  TraceLoggingDescription("ftl_ingest_disconnect called"));
+
   os_lock_mutex(&ftl->disconnect_mutex);
 
   if (ftl_get_state(ftl, FTL_CONNECTED)) {
@@ -321,6 +327,9 @@ FTL_API ftl_status_t ftl_ingest_disconnect(ftl_handle_t *ftl_handle) {
 ftl_status_t internal_ingest_disconnect(ftl_stream_configuration_private_t *ftl) {
 
   ftl_status_t status_code;
+  struct timeval profile_start;
+
+  gettimeofday(&profile_start, NULL);
     
   ftl_set_state(ftl, FTL_DISCONNECT_IN_PROGRESS);
 
@@ -333,6 +342,12 @@ ftl_status_t internal_ingest_disconnect(ftl_stream_configuration_private_t *ftl)
   }
 
   ftl_clear_state(ftl, FTL_DISCONNECT_IN_PROGRESS);
+
+  TraceLoggingWrite(XpertTraceLoggingProvider,
+	  "IngestDisconnect",
+	  TraceLoggingLevel(WINEVENT_LEVEL_INFO),
+	  TraceLoggingKeyword(0x400000000000),
+	  TraceLoggingUInt32(get_ms_elapsed_since(&profile_start), "LatencyMs"));
 
     
   return FTL_SUCCESS;

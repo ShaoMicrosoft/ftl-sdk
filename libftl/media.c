@@ -1341,9 +1341,11 @@ static int _send_pkt_stats(ftl_stream_configuration_private_t *ftl, ftl_media_co
 	  "PktStats",
 	  TraceLoggingKeyword(0x400000000000),
 	  TraceLoggingLevel(WINEVENT_LEVEL_INFO),
+	  TraceLoggingString(xpert_cv_get(&cv), "cV"),
 	  TraceLoggingUInt32(p->period, "Period"),
 	  TraceLoggingUInt32(p->sent, "PktsSent"),
 	  TraceLoggingUInt32(p->nack_reqs, "NackReqs"));
+  xpert_cv_increment(&cv);
 
   enqueue_status_msg(ftl, &m);
 

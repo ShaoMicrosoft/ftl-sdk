@@ -26,6 +26,10 @@
 #include "ftl_private.h"
 #include "hmac/hmac.h"
 
+static char *_base_64_rand(int buf_len, int value_len);
+static void _cv_extend(correlation_vector_t *cv);
+static void _cv_increment(correlation_vector_t *cv);
+
 /*
     Please note that throughout the code, we send "\r\n\r\n", where a normal newline ("\n") would suffice.
     This is done due to some firewalls / anti-malware systems not passing our packets through when we don't send those double-windows-newlines.
@@ -296,4 +300,126 @@ int _get_remote_ip(struct sockaddr *addr, size_t addrlen, char *remote_ip, size_
 	}
 
 	return 0;
+}
+
+#define CV_OVERALL_LENGTH 128
+#define CV_BASE_LENGTH 22
+static char *base64 = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=";
+
+void xpert_cv_init(char *provided_vc, correlation_vector_t *cv)
+{
+	char *cv_local = NULL;
+
+	do
+	{
+		memset(cv, 0, sizeof(correlation_vector_t));
+		os_init_mutex(&cv->mutex);
+
+		os_lock_mutex(&cv->mutex);
+
+		if (provided_vc == NULL)
+		{
+			cv_local = _base_64_rand(CV_OVERALL_LENGTH, CV_BASE_LENGTH);
+		}
+		else
+		{
+			if ((cv_local = _strdup(provided_vc, CV_OVERALL_LENGTH)) == NULL)
+			{
+				break;
+			}
+		}
+
+		cv->buf_len = sizeof(char) * CV_OVERALL_LENGTH;
+		cv->len = strlen(cv_local);
+		cv->cv = cv_local;
+
+		_cv_extend(cv);
+
+		os_unlock_mutex(&cv->mutex);
+
+		return;
+
+	} while (0);
+
+	free(cv_local);
+
+	os_unlock_mutex(&cv->mutex);
+}
+
+void xpert_cv_free(correlation_vector_t *cv)
+{
+	os_lock_mutex(&cv->mutex);
+
+	free(cv->cv);
+
+	os_unlock_mutex(&cv->mutex);
+}
+
+static char *_base_64_rand(int buf_len, int value_len)
+{
+	char *cv_local;
+	int i;
+
+	if ((cv_local = (char *)malloc(sizeof(char) * (buf_len + 1))) == NULL)
+	{
+		return NULL;
+	}
+
+	for (i = 0; i < value_len; i++)
+	{
+		cv_local[i] = base64[rand()%64];
+	}
+
+	cv_local[i] = '\0';
+
+	return cv_local;
+}
+
+const char* xpert_cv_get(correlation_vector_t *cv)
+{
+	return cv->cv;
+}
+
+void xpert_cv_increment(correlation_vector_t *cv)
+{
+	os_lock_mutex(&cv->mutex);
+
+	_cv_increment(cv);
+
+	os_unlock_mutex(&cv->mutex);
+}
+
+static void _cv_increment(correlation_vector_t *cv)
+{
+	int old_id_len;
+	int new_id_len;
+
+	cv->id++;
+
+	old_id_len = cv->len - cv->last_id_pos;
+	new_id_len = snprintf(cv->cv + cv->last_id_pos, cv->buf_len - cv->last_id_pos, "%d", cv->id);
+
+	cv->len += new_id_len - old_id_len;
+}
+
+void xpert_cv_extend(correlation_vector_t *cv)
+{
+	os_lock_mutex(&cv->mutex);
+
+	_cv_extend(cv);
+
+	os_unlock_mutex(&cv->mutex);
+}
+
+static void _cv_extend(correlation_vector_t *cv)
+{
+	if ((cv->len + 2) >= cv->buf_len)
+	{
+		return;
+	}
+
+	strncpy_s(cv->cv + cv->len, cv->buf_len, ".0", cv->buf_len - cv->len);
+	cv->id = 0;
+	cv->len += 2;
+	cv->last_id_pos = cv->len - 1;
 }

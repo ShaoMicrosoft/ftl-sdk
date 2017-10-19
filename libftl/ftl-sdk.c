@@ -9,6 +9,8 @@
 static BOOL _get_chan_id_and_key(const char *stream_key, uint32_t *chan_id, char *key);
 static int _lookup_ingest_ip(const char *ingest_location, char *ingest_ip);
 
+correlation_vector_t cv;
+
 TRACELOGGING_DEFINE_PROVIDER(
 	XpertTraceLoggingProvider,
 	"Microsoft.Mixer.SFtlSdk",
@@ -43,6 +45,7 @@ FTL_API ftl_status_t ftl_ingest_create(ftl_handle_t *ftl_handle, ftl_ingest_para
 
   do {
 	TLG_STATUS status = TraceLoggingRegister(XpertTraceLoggingProvider);
+	xpert_cv_init(NULL, &cv);
 
     if ((ftl = (ftl_stream_configuration_private_t *)malloc(sizeof(ftl_stream_configuration_private_t))) == NULL) {
       // Note it is important that we return here otherwise the call to 
@@ -107,15 +110,18 @@ FTL_API ftl_status_t ftl_ingest_create(ftl_handle_t *ftl_handle, ftl_ingest_para
     ftl_handle->priv = ftl;
 
 	TraceLoggingWrite(XpertTraceLoggingProvider,
-		"CreateParams",            
+		"CreateParams",
 		TraceLoggingKeyword(0x400000000000),
 		TraceLoggingLevel(WINEVENT_LEVEL_INFO),
+		TraceLoggingString(xpert_cv_get(&cv), "cV"),
 		TraceLoggingString(ftl->vendor_name, "VendorName"),
 		TraceLoggingString(ftl->vendor_version, "VendorVersion"),
 	    TraceLoggingString(params->ingest_hostname, "IngestHostname"),
 		TraceLoggingUInt32(params->peak_kbps, "PeakKbps"),
 		TraceLoggingUInt32(params->fps_num, "FpsNum"),
 		TraceLoggingUInt32(params->fps_den, "FpsDen"));
+	xpert_cv_increment(&cv);
+
 		
     return ret_status;
   } while (0);
@@ -142,7 +148,9 @@ FTL_API ftl_status_t ftl_ingest_connect(ftl_handle_t *ftl_handle){
 		"IngestInit",
 		TraceLoggingLevel(WINEVENT_LEVEL_INFO),
 		TraceLoggingKeyword(0x400000000000),
+		TraceLoggingString(xpert_cv_get(&cv), "cV"),
 		TraceLoggingUInt32(get_ms_elapsed_since(&profile_start), "LatencyMs"));
+	xpert_cv_increment(&cv);
 
 
 	gettimeofday(&profile_start, NULL);

@@ -324,6 +324,15 @@ typedef struct
     uint64_t min_encoding_bitrate;
 } ftl_adaptive_bitrate_thread_params_t;
 
+typedef struct _correlation_vector_t {
+	char *cv;
+	OS_MUTEX mutex;
+	int len;
+	int buf_len;//size of the cv buffer
+	int id;
+	int last_id_pos;
+}correlation_vector_t;
+
 typedef struct {
   SOCKET ingest_socket;
   ftl_state_t state;
@@ -414,6 +423,7 @@ int ftl_read_media_port(const char *response_str);
  **/
 
 TRACELOGGING_DECLARE_PROVIDER(XpertTraceLoggingProvider);
+extern correlation_vector_t cv;
 // FIXME: make this less global
 extern char error_message[1000];
 
@@ -426,6 +436,11 @@ ftl_status_t dequeue_status_msg(ftl_stream_configuration_private_t *ftl, ftl_sta
 ftl_status_t enqueue_status_msg(ftl_stream_configuration_private_t *ftl, ftl_status_msg_t *stats_msg);
 ftl_status_t _set_ingest_hostname(ftl_stream_configuration_private_t *ftl);
 int _get_remote_ip(struct sockaddr *addr, size_t addrlen, char *remote_ip, size_t ip_len);
+void xpert_cv_init(char *provided_vc, correlation_vector_t *cv);
+void xpert_cv_extend(correlation_vector_t *cv);
+const char* xpert_cv_get(correlation_vector_t *cv);
+void xpert_cv_increment(correlation_vector_t *cv);
+void xpert_cv_free(correlation_vector_t *cv);
 
 ftl_status_t _init_control_connection(ftl_stream_configuration_private_t *ftl);
 ftl_status_t _ingest_connect(ftl_stream_configuration_private_t *stream_config);

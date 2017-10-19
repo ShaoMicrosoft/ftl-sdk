@@ -418,7 +418,7 @@ static void _cv_extend(correlation_vector_t *cv)
 		return;
 	}
 
-	strncpy_s(cv->cv + cv->len, cv->buf_len, ".0", cv->buf_len - cv->len);
+	strncpy_s(cv->cv + cv->len, cv->buf_len-cv->len, ".0", _TRUNCATE);
 	cv->id = 0;
 	cv->len += 2;
 	cv->last_id_pos = cv->len - 1;

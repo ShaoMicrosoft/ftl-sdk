@@ -123,6 +123,7 @@ OS_THREAD_ROUTINE _ingest_get_hosts(ftl_stream_configuration_private_t *ftl) {
   int total_ingest_cnt = 0;
   json_error_t error;
   json_t *ingests = NULL, *ingest_item = NULL;
+  struct timeval profile_start;
 
   curl_handle = curl_easy_init();
 
@@ -141,7 +142,17 @@ OS_THREAD_ROUTINE _ingest_get_hosts(ftl_stream_configuration_private_t *ftl) {
   curl_easy_setopt(curl_handle, CURLOPT_SSL_ENABLE_ALPN, 0);
 #endif
 
+  gettimeofday(&profile_start, NULL);
+
   res = curl_easy_perform(curl_handle);
+
+  TraceLoggingWrite(XpertTraceLoggingProvider,
+	  "AutoIngestGetHosts",
+	  TraceLoggingLevel(WINEVENT_LEVEL_INFO),
+	  TraceLoggingKeyword(0x400000000000),
+	  TraceLoggingUInt32(get_ms_elapsed_since(&profile_start), "LatencyMs"),
+	  TraceLoggingBool(res == CURLE_OK, "Succeeded"),
+	  TraceLoggingString(curl_easy_strerror(res), "ErrorMsg"));
 
   if (res != CURLE_OK) {
     printf("curl_easy_perform() failed: %s\n", curl_easy_strerror(res));
@@ -279,6 +290,15 @@ char * ingest_find_best(ftl_stream_configuration_private_t *ftl) {
   free(data);
 
   if (best){
+	TraceLoggingWrite(XpertTraceLoggingProvider,
+		"AutoIngest",
+		TraceLoggingKeyword(0x400000000000),
+		TraceLoggingLevel(WINEVENT_LEVEL_INFO),
+		TraceLoggingString(xpert_cv_get(&cv), "cV"),
+		TraceLoggingString(best->hostname, "Hostname"),
+		TraceLoggingString(best->ip, "IP"),
+		TraceLoggingUInt32(best->rtt, "Rtt"));
+	xpert_cv_increment(&cv);
     FTL_LOG(ftl, FTL_LOG_INFO, "%s at ip %s had the shortest RTT of %d ms\n", best->hostname, best->ip, best->rtt);
     return _strdup(best->hostname);
   }

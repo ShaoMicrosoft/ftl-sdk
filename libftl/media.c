@@ -1365,6 +1365,21 @@ static int _send_instant_pkt_stats(ftl_stream_configuration_private_t *ftl, ftl_
   p->max_xmit_delay = mc->stats.pkt_xmit_delay_max;
   p->avg_xmit_delay = (mc->stats.xmit_delay_samples) ? mc->stats.total_xmit_delay / mc->stats.xmit_delay_samples : 0;
 
+  TraceLoggingWrite(XpertTraceLoggingProvider,
+	  "iPktStats",
+	  TraceLoggingKeyword(0x400000000000),
+	  TraceLoggingLevel(WINEVENT_LEVEL_INFO),
+	  TraceLoggingString(xpert_cv_get(&cv), "cV"),
+	  TraceLoggingUInt32(p->period, "Period"),
+	  TraceLoggingUInt32(p->min_rtt, "minRtt"),
+	  TraceLoggingUInt32(p->max_rtt, "maxRtt"),
+	  TraceLoggingUInt32(p->avg_rtt, "avgRtt"),
+	  TraceLoggingUInt32(p->min_xmit_delay, "minXmitDelay"),
+	  TraceLoggingUInt32(p->max_xmit_delay, "maxXmitDelay"),
+	  TraceLoggingUInt32(p->avg_xmit_delay, "avgXmitDelay")
+  );
+  xpert_cv_increment(&cv);
+
   mc->stats.pkt_xmit_delay_max = 0;
   mc->stats.pkt_xmit_delay_min = 10000;
   mc->stats.total_xmit_delay = 0;
@@ -1398,6 +1413,22 @@ static int _send_video_stats(ftl_stream_configuration_private_t *ftl, ftl_media_
   v->bytes_sent = mc->stats.bytes_sent;
   v->queue_fullness = (int)(_media_get_queue_fullness(ftl, mc->ssrc) * 100.f);
   v->max_frame_size = mc->stats.max_frame_size;
+
+  TraceLoggingWrite(XpertTraceLoggingProvider,
+	  "iPktStats",
+	  TraceLoggingKeyword(0x400000000000),
+	  TraceLoggingLevel(WINEVENT_LEVEL_INFO),
+	  TraceLoggingString(xpert_cv_get(&cv), "cV"),
+	  TraceLoggingUInt32(v->period, "Period"),
+	  TraceLoggingUInt32(v->frames_queued, "framesQueued"),
+	  TraceLoggingUInt32(v->frames_sent, "framesSent"),
+	  TraceLoggingUInt32(v->bw_throttling_count, "bwThrottlingCnt"),
+	  TraceLoggingUInt32(v->bytes_queued, "bytesQueued"),
+	  TraceLoggingUInt32(v->bytes_sent, "bytesSent"),
+	  TraceLoggingUInt32(v->queue_fullness, "queueFullness"),
+	  TraceLoggingUInt32(v->max_frame_size, "maxFrameSize")
+  );
+  xpert_cv_increment(&cv);
 
   mc->stats.max_frame_size = 0;
   enqueue_status_msg(ftl, &m);
